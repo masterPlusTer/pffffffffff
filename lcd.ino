@@ -4,7 +4,7 @@ const int backlightPin = A3; // Pin para backlight
 // Pines del display
 const int rs = 10;  // Pin RS
 const int e = 8;    // Pin Enable (E)
-const int dataPins[8] = {2, 3, 4, 5, 6, 7, A0, A1}; // DB0-DB7
+const int dataPins[8] = {2, 3, 4, 5, 6, 7, 11, A2}; // DB6 -> 11
 
 void setup() {
     // Configurar el backlight
@@ -41,7 +41,7 @@ void initializeDisplay() {
 
 // Prueba de un valor binario
 void testSingleBinary() {
-    byte binaryValue = 0b11110000; // Cambia este valor binario (Ejemplo: 'A')
+    byte binaryValue = 0b11111100; // Cambia este valor binario (Ejemplo: 'A')
     sendData(binaryValue);        // Enviar el valor binario al display
     delay(5000);                  // Espera para observar el resultado
 }
@@ -63,7 +63,8 @@ void sendData(byte data) {
 // Escribir 8 bits en los pines de datos
 void write8Bits(byte value) {
     for (int i = 0; i < 8; i++) {
-        digitalWrite(dataPins[i], (value >> i) & 0x01); // Enviar cada bit al pin correspondiente
+        digitalWrite(dataPins[i], (value >> i) & 0x01);
+        delayMicroseconds(5); // Retardo para estabilizar
     }
 }
 
@@ -74,3 +75,4 @@ void pulseEnable() {
     digitalWrite(e, LOW);
     delayMicroseconds(100); // Espera para procesar
 }
+
