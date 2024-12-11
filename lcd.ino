@@ -21,12 +21,21 @@ void setup() {
     // Inicializar el display
     initializeDisplay();
 
-    // Prueba de un valor binario
-    testSingleBinary(); // Llama a la función para probar un binario
+    // Inicia la comunicación Serial
+    Serial.begin(9600);
+    Serial.println("Arduino LCD Controller Ready");
+    Serial.println("Send commands like:");
+    Serial.println("TXT:Hello World");
+    Serial.println("CLR");
+    Serial.println("CUR:2,5");
 }
 
 void loop() {
-    // El loop queda vacío
+    // Revisa si hay datos en el puerto Serial
+    if (Serial.available()) {
+        String command = Serial.readStringUntil('\n'); // Lee el comando completo
+        processCommand(command); // Procesa el comando recibido
+    }
 }
 
 // Inicializar el display en modo 8 bits
@@ -39,11 +48,57 @@ void initializeDisplay() {
     delay(2); // Esperar limpieza
 }
 
-// Prueba de un valor binario
-void testSingleBinary() {
-    byte binaryValue = 0b11111100; // Cambia este valor binario (Ejemplo: 'A')
-    sendData(binaryValue);        // Enviar el valor binario al display
-    delay(5000);                  // Espera para observar el resultado
+// Procesar comandos recibidos
+void processCommand(String command) {
+    // Dividir comando y datos
+    int separatorIndex = command.indexOf(':');
+    String cmd = command.substring(0, separatorIndex);
+    String data = command.substring(separatorIndex + 1);
+
+    // Procesar diferentes tipos de comandos
+    if (cmd == "TXT") {
+        // Escribir texto
+        writeText(data.c_str());
+        Serial.println("Text written: " + data);
+    } else if (cmd == "CLR") {
+        // Limpiar pantalla
+        sendCommand(0x01);
+        delay(2);
+        Serial.println("Screen cleared");
+    } else if (cmd == "CUR") {
+        // Mover cursor
+        int commaIndex = data.indexOf(',');
+        if (commaIndex != -1) {
+            int line = data.substring(0, commaIndex).toInt();
+            int column = data.substring(commaIndex + 1).toInt();
+            setCursor(line, column);
+            Serial.println("Cursor moved to: Line " + String(line) + ", Column " + String(column));
+        } else {
+            Serial.println("Invalid CUR format. Use CUR:line,column");
+        }
+    } else {
+        Serial.println("Unknown Command");
+    }
+}
+
+// Escribir texto en el display
+void writeText(const char* text) {
+    while (*text) {
+        sendData(*text++);
+    }
+}
+
+// Posicionar el cursor en una línea y columna
+void setCursor(int line, int column) {
+    byte address;
+    switch (line) {
+        case 1: address = 0x00 + column; break; // Línea 1
+        case 2: address = 0x40 + column; break; // Línea 2
+        case 3: address = 0x14 + column; break; // Línea 3
+        case 4: address = 0x54 + column; break; // Línea 4
+        default: return; // Salir si la línea no es válida
+    }
+    sendCommand(0x80 | address); // Mover el cursor
 }
 
 // Enviar un comando al display
@@ -63,7 +118,7 @@ void sendData(byte data) {
 // Escribir 8 bits en los pines de datos
 void write8Bits(byte value) {
     for (int i = 0; i < 8; i++) {
-        digitalWrite(dataPins[i], (value >> i) & 0x01);
+        digitalWrite(dataPins[i], (value >> i) & 0x01); // Enviar cada bit
         delayMicroseconds(5); // Retardo para estabilizar
     }
 }
@@ -75,4 +130,3 @@ void pulseEnable() {
     digitalWrite(e, LOW);
     delayMicroseconds(100); // Espera para procesar
 }
-
