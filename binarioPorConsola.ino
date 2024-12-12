@@ -5,7 +5,7 @@ const int rw = 10;          // RW
 const int e = 11;           // Enable
 const int dataPins[8] = {2, 3, 4, 5, 6, 7, 8, 12}; // DB0-DB7
 
-// Tamaño del display (modifica según tu configuración)
+// Tamaño del display
 const int columns = 20; // Número de columnas
 const int rows = 4;     // Número de filas
 
@@ -48,20 +48,14 @@ void loop() {
 
 // Inicializar el display
 void initializeDisplay() {
-    delay(50); // Espera inicial
-
+    waitUntilReady();
     sendCommand(0x30); // Modo 8 bits
-    delay(5);
     sendCommand(0x30); // Repetir configuración
-    delayMicroseconds(150);
     sendCommand(0x30); // Última configuración
-    delayMicroseconds(150);
-
     sendCommand(0x38); // Modo 8 bits, 2 líneas, 5x8 puntos
     sendCommand(0x0C); // Display ON, cursor OFF
     sendCommand(0x06); // Incrementar cursor automáticamente
     sendCommand(0x01); // Limpiar pantalla
-    delay(2);
 }
 
 // Validar si la entrada es binaria
@@ -145,7 +139,7 @@ byte readData() {
 
 // Enviar un comando al display
 void sendCommand(byte command) {
-    delay(2);
+    waitUntilReady();
     digitalWrite(rs, LOW); // RS = 0 para comando
     digitalWrite(rw, LOW); // RW = 0 para escritura
     write8Bits(command);
@@ -154,7 +148,7 @@ void sendCommand(byte command) {
 
 // Enviar datos al display
 void sendData(byte data) {
-    delay(2);
+    waitUntilReady();
     digitalWrite(rs, HIGH); // RS = 1 para datos
     digitalWrite(rw, LOW);  // RW = 0 para escritura
     write8Bits(data);
@@ -174,4 +168,23 @@ void pulseEnable() {
     delayMicroseconds(1);
     digitalWrite(e, LOW);
     delayMicroseconds(100);
+}
+
+// Esperar hasta que el display esté listo usando el Busy Flag
+void waitUntilReady() {
+    pinMode(dataPins[7], INPUT); // Configurar DB7 como entrada
+    digitalWrite(rs, LOW);      // RS = 0 para comando
+    digitalWrite(rw, HIGH);     // RW = 1 para lectura
+
+    bool busy = true;
+    while (busy) {
+        digitalWrite(e, HIGH); // Generar pulso Enable
+        delayMicroseconds(1);
+        busy = digitalRead(dataPins[7]); // Leer DB7 (Busy Flag)
+        digitalWrite(e, LOW);           // Final del pulso
+        delayMicroseconds(100);
+    }
+
+    pinMode(dataPins[7], OUTPUT); // Restaurar DB7 como salida
+    digitalWrite(rw, LOW);       // RW = 0 para escritura
 }
