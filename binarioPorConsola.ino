@@ -18,6 +18,7 @@ void setup() {
     Serial.begin(9600);
     Serial.println("Escribe un valor binario (8 bits) para mostrar en el display.");
     Serial.println("Ejemplo: 01000001 (corresponde a 'A')");
+    Serial.println("Escribe 'READ' para leer lo que está en el display.");
 
     // Inicializar el display
     initializeDisplay();
@@ -26,16 +27,18 @@ void setup() {
 
 void loop() {
     if (Serial.available() > 0) {
-        String binaryInput = Serial.readStringUntil('\n'); // Lee hasta un salto de línea
-        binaryInput.trim(); // Elimina espacios o caracteres extras
+        String input = Serial.readStringUntil('\n'); // Lee hasta un salto de línea
+        input.trim(); // Elimina espacios o caracteres extras
 
-        if (binaryInput.length() == 8 && isBinary(binaryInput)) {
-            byte value = binaryToByte(binaryInput);
+        if (input.equalsIgnoreCase("READ")) {
+            readDisplay(); // Leer y mostrar lo que está en el display
+        } else if (input.length() == 8 && isBinary(input)) {
+            byte value = binaryToByte(input);
             sendData(value); // Enviar el valor binario al display
             Serial.print("Mostrando en el display: ");
-            Serial.println(binaryInput);
+            Serial.println(input);
         } else {
-            Serial.println("Entrada no válida. Por favor, ingresa exactamente 8 bits.");
+            Serial.println("Entrada no válida. Ingresa 'READ' o un valor binario (8 bits).");
         }
     }
 }
@@ -77,6 +80,49 @@ byte binaryToByte(String binary) {
             value |= 1; // Establecer el bit si es '1'
         }
     }
+    return value;
+}
+
+// Leer y mostrar lo que está en el display
+void readDisplay() {
+    Serial.println("Leyendo contenido del display:");
+    pinMode(rs, OUTPUT);
+    pinMode(rw, OUTPUT);
+
+    for (int addr = 0; addr < 16; addr++) { // Suponiendo 16 caracteres por línea
+        sendCommand(0x80 | addr); // Mover el cursor a la dirección DDRAM
+        byte data = readData();   // Leer el carácter en esa posición
+        Serial.print((char)data); // Mostrar el carácter leído
+    }
+
+    Serial.println(); // Nueva línea después de leer la línea completa
+}
+
+// Leer datos del display
+byte readData() {
+    pinMode(rs, OUTPUT);
+    pinMode(rw, OUTPUT);
+    for (int i = 0; i < 8; i++) {
+        pinMode(dataPins[i], INPUT); // Configurar pines de datos como entrada
+    }
+
+    digitalWrite(rs, HIGH); // RS = 1 para datos
+    digitalWrite(rw, HIGH); // RW = 1 para lectura
+    digitalWrite(e, HIGH);
+    delayMicroseconds(1);
+
+    byte value = 0;
+    for (int i = 0; i < 8; i++) {
+        value |= (digitalRead(dataPins[i]) << i);
+    }
+
+    digitalWrite(e, LOW);
+    delayMicroseconds(100);
+
+    for (int i = 0; i < 8; i++) {
+        pinMode(dataPins[i], OUTPUT); // Restaurar pines como salida
+    }
+
     return value;
 }
 
