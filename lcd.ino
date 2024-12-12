@@ -1,132 +1,84 @@
-// Pines para backlight
-const int backlightPin = A3; // Pin para backlight
+// Pines para backlight y control
+const int backlightPin = A3; // Backlight
+const int rs = 9;          // RS
+const int rw = 10;           // RW
+const int e = 11;            // Enable
 
-// Pines del display
-const int rs = 10;  // Pin RS
-const int e = 8;    // Pin Enable (E)
-const int dataPins[8] = {2, 3, 4, 5, 6, 7, 11, A2}; // DB6 -> 11
+const int dataPins[8] = {2, 3, 4, 5, 6, 7, 8, 12}; // DB0-DB7
 
 void setup() {
-    // Configurar el backlight
     pinMode(backlightPin, OUTPUT);
-    analogWrite(backlightPin, 200); // Nivel de backlight (0-255)
-
-    // Configurar pines del display como salida
+    analogWrite(backlightPin, 200); // Encender backlight
     pinMode(rs, OUTPUT);
+    pinMode(rw, OUTPUT);
     pinMode(e, OUTPUT);
     for (int i = 0; i < 8; i++) {
         pinMode(dataPins[i], OUTPUT);
     }
 
+    Serial.begin(9600);
+    Serial.println("Prueba con DB7 en pin 12...");
+
     // Inicializar el display
     initializeDisplay();
 
-    // Inicia la comunicación Serial
-    Serial.begin(9600);
-    Serial.println("Arduino LCD Controller Ready");
-    Serial.println("Send commands like:");
-    Serial.println("TXT:Hello World");
-    Serial.println("CLR");
-    Serial.println("CUR:2,5");
+    // Escribir texto básico
+    sendCommand(0x80); // Cursor al inicio
+    sendData('H');
+    sendData('i');
+    sendData('!');
+    Serial.println("Escritura completada.");
 }
 
-void loop() {
-    // Revisa si hay datos en el puerto Serial
-    if (Serial.available()) {
-        String command = Serial.readStringUntil('\n'); // Lee el comando completo
-        processCommand(command); // Procesa el comando recibido
-    }
-}
+void loop() {}
 
-// Inicializar el display en modo 8 bits
+// Inicializar el display
 void initializeDisplay() {
     delay(50); // Espera inicial
-    sendCommand(0x38); // Configuración: 8 bits, 2 líneas, 5x8 puntos
+
+    sendCommand(0x30); // Modo 8 bits
+    delay(5);
+    sendCommand(0x30); // Repetir configuración
+    delayMicroseconds(150);
+    sendCommand(0x30); // Última configuración
+    delayMicroseconds(150);
+
+    sendCommand(0x38); // Modo 8 bits, 2 líneas, 5x8 puntos
     sendCommand(0x0C); // Display ON, cursor OFF
     sendCommand(0x06); // Incrementar cursor automáticamente
     sendCommand(0x01); // Limpiar pantalla
-    delay(2); // Esperar limpieza
-}
-
-// Procesar comandos recibidos
-void processCommand(String command) {
-    // Dividir comando y datos
-    int separatorIndex = command.indexOf(':');
-    String cmd = command.substring(0, separatorIndex);
-    String data = command.substring(separatorIndex + 1);
-
-    // Procesar diferentes tipos de comandos
-    if (cmd == "TXT") {
-        // Escribir texto
-        writeText(data.c_str());
-        Serial.println("Text written: " + data);
-    } else if (cmd == "CLR") {
-        // Limpiar pantalla
-        sendCommand(0x01);
-        delay(2);
-        Serial.println("Screen cleared");
-    } else if (cmd == "CUR") {
-        // Mover cursor
-        int commaIndex = data.indexOf(',');
-        if (commaIndex != -1) {
-            int line = data.substring(0, commaIndex).toInt();
-            int column = data.substring(commaIndex + 1).toInt();
-            setCursor(line, column);
-            Serial.println("Cursor moved to: Line " + String(line) + ", Column " + String(column));
-        } else {
-            Serial.println("Invalid CUR format. Use CUR:line,column");
-        }
-    } else {
-        Serial.println("Unknown Command");
-    }
-}
-
-// Escribir texto en el display
-void writeText(const char* text) {
-    while (*text) {
-        sendData(*text++);
-    }
-}
-
-// Posicionar el cursor en una línea y columna
-void setCursor(int line, int column) {
-    byte address;
-    switch (line) {
-        case 1: address = 0x00 + column; break; // Línea 1
-        case 2: address = 0x40 + column; break; // Línea 2
-        case 3: address = 0x14 + column; break; // Línea 3
-        case 4: address = 0x54 + column; break; // Línea 4
-        default: return; // Salir si la línea no es válida
-    }
-    sendCommand(0x80 | address); // Mover el cursor
+    delay(2);
 }
 
 // Enviar un comando al display
 void sendCommand(byte command) {
+    delay(2);
     digitalWrite(rs, LOW); // RS = 0 para comando
+    digitalWrite(rw, LOW); // RW = 0 para escritura
     write8Bits(command);
     pulseEnable();
 }
 
 // Enviar datos al display
 void sendData(byte data) {
+    delay(2);
     digitalWrite(rs, HIGH); // RS = 1 para datos
+    digitalWrite(rw, LOW);  // RW = 0 para escritura
     write8Bits(data);
     pulseEnable();
 }
 
-// Escribir 8 bits en los pines de datos
+// Escribir 8 bits en el display
 void write8Bits(byte value) {
     for (int i = 0; i < 8; i++) {
-        digitalWrite(dataPins[i], (value >> i) & 0x01); // Enviar cada bit
-        delayMicroseconds(5); // Retardo para estabilizar
+        digitalWrite(dataPins[i], (value >> i) & 0x01);
     }
 }
 
 // Generar un pulso en Enable
 void pulseEnable() {
     digitalWrite(e, HIGH);
-    delayMicroseconds(20); // Pulso más largo
+    delayMicroseconds(1);
     digitalWrite(e, LOW);
-    delayMicroseconds(100); // Espera para procesar
+    delayMicroseconds(100);
 }
