@@ -5,6 +5,10 @@ const int rw = 10;          // RW
 const int e = 11;           // Enable
 const int dataPins[8] = {2, 3, 4, 5, 6, 7, 8, 12}; // DB0-DB7
 
+// Tamaño del display (modifica según tu configuración)
+const int columns = 20; // Número de columnas
+const int rows = 4;     // Número de filas
+
 void setup() {
     pinMode(backlightPin, OUTPUT);
     analogWrite(backlightPin, 200); // Encender backlight
@@ -17,8 +21,7 @@ void setup() {
 
     Serial.begin(9600);
     Serial.println("Escribe un valor binario (8 bits) para mostrar en el display.");
-    Serial.println("Ejemplo: 01000001 (corresponde a 'A')");
-    Serial.println("Escribe 'READ' para leer lo que está en el display.");
+    Serial.println("Escribe 'READ' para leer todo lo que está en el display.");
 
     // Inicializar el display
     initializeDisplay();
@@ -31,7 +34,7 @@ void loop() {
         input.trim(); // Elimina espacios o caracteres extras
 
         if (input.equalsIgnoreCase("READ")) {
-            readDisplay(); // Leer y mostrar lo que está en el display
+            readDisplay(); // Leer y mostrar todo el contenido del display
         } else if (input.length() == 8 && isBinary(input)) {
             byte value = binaryToByte(input);
             sendData(value); // Enviar el valor binario al display
@@ -83,25 +86,39 @@ byte binaryToByte(String binary) {
     return value;
 }
 
-// Leer y mostrar lo que está en el display
+// Leer y mostrar todo el contenido del display
 void readDisplay() {
-    Serial.println("Leyendo contenido del display:");
-    pinMode(rs, OUTPUT);
-    pinMode(rw, OUTPUT);
+    Serial.println("Leyendo contenido completo del display:");
 
-    for (int addr = 0; addr < 16; addr++) { // Suponiendo 16 caracteres por línea
-        sendCommand(0x80 | addr); // Mover el cursor a la dirección DDRAM
-        byte data = readData();   // Leer el carácter en esa posición
-        Serial.print((char)data); // Mostrar el carácter leído
+    for (int row = 0; row < rows; row++) {
+        Serial.print("Fila ");
+        Serial.print(row + 1);
+        Serial.print(": ");
+
+        for (int col = 0; col < columns; col++) {
+            int address = getAddress(row, col); // Obtener la dirección DDRAM
+            sendCommand(0x80 | address);       // Mover el cursor a esa dirección
+            byte data = readData();           // Leer el carácter
+            Serial.print((char)data);         // Mostrarlo en consola
+        }
+
+        Serial.println(); // Nueva línea para la siguiente fila
     }
+}
 
-    Serial.println(); // Nueva línea después de leer la línea completa
+// Obtener la dirección DDRAM según la fila y columna
+int getAddress(int row, int col) {
+    switch (row) {
+        case 0: return 0x00 + col; // Fila 1
+        case 1: return 0x40 + col; // Fila 2
+        case 2: return 0x14 + col; // Fila 3
+        case 3: return 0x54 + col; // Fila 4
+        default: return 0x00;      // Por defecto, inicio
+    }
 }
 
 // Leer datos del display
 byte readData() {
-    pinMode(rs, OUTPUT);
-    pinMode(rw, OUTPUT);
     for (int i = 0; i < 8; i++) {
         pinMode(dataPins[i], INPUT); // Configurar pines de datos como entrada
     }
