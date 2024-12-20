@@ -2,7 +2,7 @@ from machine import Pin, SPI
 import time
 
 # Configuración de SPI y pines
-spi = SPI(1, baudrate=40000000, polarity=0, phase=0, sck=Pin(12), mosi=Pin(11))
+spi = SPI(1, baudrate=40000000, polarity=0, phase=0, sck=Pin(12), mosi=Pin(11))  # SPI optimizado
 cs = Pin(10, Pin.OUT)   # Chip Select
 dc = Pin(8, Pin.OUT)    # Data/Command
 rst = Pin(9, Pin.OUT)   # Reset
@@ -49,13 +49,13 @@ def init_display():
     write_data(0x00)
     write_data(0x00)
     write_data(0x00)
-    write_data(0xEF)  # 239
+    write_data(0xEF)  # 239 columnas
 
     write_cmd(0x2B)  # Rango de filas
     write_data(0x00)
     write_data(0x00)
     write_data(0x01)
-    write_data(0x3F)  # 319
+    write_data(0x3F)  # 319 filas
 
     write_cmd(0x29)  # Encender display
 
@@ -77,13 +77,22 @@ def set_active_window(x0, y0, x1, y1):
     write_data(y1 >> 8)  # Byte alto de y1
     write_data(y1 & 0xFF)  # Byte bajo de y1
 
-def fill_screen(color):
-    """Llena toda la pantalla con un color específico."""
+def fill_screen_fast(color):
+    """Llena toda la pantalla con un color usando un buffer por líneas."""
     set_active_window(0, 0, 239, 319)  # Toda la pantalla
-    write_cmd(0x2C)
-    for _ in range(240 * 320):
-        write_data(color >> 8)
-        write_data(color & 0xFF)
+    write_cmd(0x2C)  # Comando para escribir en memoria
+
+    # Crear un buffer para una línea completa (240 píxeles)
+    high_byte = color >> 8
+    low_byte = color & 0xFF
+    line_buffer = bytearray([high_byte, low_byte] * 240)
+
+    # Enviar el buffer 320 veces (una vez por línea)
+    for _ in range(320):
+        cs.value(0)
+        dc.value(1)
+        spi.write(line_buffer)
+        cs.value(1)
 
 def draw_pixel(x, y, color):
     """Dibuja un píxel en las coordenadas especificadas."""
@@ -94,7 +103,7 @@ def draw_pixel(x, y, color):
 
 # Inicializar el display
 init_display()
-fill_screen(0b0000000000000000)  # Llenar la pantalla
+fill_screen_fast(0b0000000000000000)  # Llenar la pantalla con negro
 
 # Colores en formato RGB565
 red = 0b1111100000000000    # Rojo puro
@@ -106,6 +115,11 @@ white = 0b1111111111111111  # Blanco
 
 # Dibujar píxeles en diferentes posiciones y colores
 draw_pixel(0, 0, red)       # Esquina superior izquierda
-draw_pixel(120, 150, blue)  # Centro
+draw_pixel(134, 0, red)       # Esquina superior derecha
+
+draw_pixel(120, 150, blue)
+
+draw_pixel(0, 239, blue) # Esquina inferior izquierda
+
 draw_pixel(134, 239, green) # Esquina inferior derecha
 
