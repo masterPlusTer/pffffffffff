@@ -77,7 +77,7 @@ def set_active_window(x0, y0, x1, y1):
     write_data(y1 >> 8)  # Byte alto de y1
     write_data(y1 & 0xFF)  # Byte bajo de y1
 
-def fill_screen_fast(color):
+def fill_screen(color):
     """Llena toda la pantalla con un color usando un buffer por líneas."""
     set_active_window(0, 0, 239, 319)  # Toda la pantalla
     write_cmd(0x2C)  # Comando para escribir en memoria
@@ -100,10 +100,128 @@ def draw_pixel(x, y, color):
     write_cmd(0x2C)
     write_data(color >> 8)  # Byte alto del color
     write_data(color & 0xFF)  # Byte bajo del color
+    
+def draw_line(x0, y0, x1, y1, color):
+    """Dibuja una línea entre los puntos (x0, y0) y (x1, y1) con el color especificado."""
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+
+    while True:
+        draw_pixel(x0, y0, color)  # Dibuja el píxel en las coordenadas actuales
+        if x0 == x1 and y0 == y1:  # Si hemos llegado al final
+            break
+        err2 = err * 2
+        if err2 > -dy:
+            err -= dy
+            x0 += sx
+        if err2 < dx:
+            err += dx
+            y0 += sy    
+    
+  
+def draw_rectangle(x0, y0, x1, y1, color, filled=False):
+    """Dibuja un rectángulo entre los puntos (x0, y0) y (x1, y1) con el color especificado.
+    Si 'filled' es True, el rectángulo estará relleno."""
+    if filled:
+        for x in range(min(x0, x1), max(x0, x1) + 1):
+            for y in range(min(y0, y1), max(y0, y1) + 1):
+                draw_pixel(x, y, color)
+    else:
+        for x in range(min(x0, x1), max(x0, x1) + 1):
+            draw_pixel(x, y0, color)  # Línea superior
+            draw_pixel(x, y1, color)  # Línea inferior
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            draw_pixel(x0, y, color)  # Línea izquierda
+            draw_pixel(x1, y, color)  # Línea derecha
+
+
+def draw_circle(x0, y0, radius, color, filled=False):
+    """Dibuja un círculo con centro en (x0, y0) y un radio 'radius'.
+    Si 'filled' es True, el círculo estará relleno."""
+    x = radius
+    y = 0
+    err = 0
+
+    while x >= y:
+        if filled:
+            # Dibuja líneas horizontales entre los extremos del círculo
+            for i in range(x0 - x, x0 + x + 1):
+                draw_pixel(i, y0 + y, color)  # Parte superior
+                draw_pixel(i, y0 - y, color)  # Parte inferior
+            for i in range(x0 - y, x0 + y + 1):
+                draw_pixel(i, y0 + x, color)  # Lados arriba
+                draw_pixel(i, y0 - x, color)  # Lados abajo
+
+        # Dibuja el contorno del círculo en los octantes
+        draw_pixel(x0 + x, y0 + y, color)
+        draw_pixel(x0 - x, y0 + y, color)
+        draw_pixel(x0 + x, y0 - y, color)
+        draw_pixel(x0 - x, y0 - y, color)
+        draw_pixel(x0 + y, y0 + x, color)
+        draw_pixel(x0 - y, y0 + x, color)
+        draw_pixel(x0 + y, y0 - x, color)
+        draw_pixel(x0 - y, y0 - x, color)
+
+        y += 1
+        err += 1 + 2 * y
+        if 2 * (err - x) + 1 > 0:
+            x -= 1
+            err += 1 - 2 * x
+            
+            
+def draw_polygon(color, filled=False, *vertices):
+    """
+    Dibuja un polígono basado en una lista de vértices.
+    
+    :param color: Color en formato RGB565.
+    :param filled: Si es True, rellena el polígono.
+    :param vertices: Vértices del polígono como argumentos separados ((x1, y1), (x2, y2), ...).
+    """
+    if len(vertices) < 3:
+        raise ValueError("Un polígono debe tener al menos 3 vértices.")
+    
+    if filled:
+        # Algoritmo de llenado básico: escaneo horizontal
+        min_y = min(y for _, y in vertices)
+        max_y = max(y for _, y in vertices)
+        
+        for y in range(min_y, max_y + 1):
+            intersections = []
+            for i in range(len(vertices)):
+                x1, y1 = vertices[i]
+                x2, y2 = vertices[(i + 1) % len(vertices)]
+                
+                if y1 < y2:
+                    x_start, y_start = x1, y1
+                    x_end, y_end = x2, y2
+                else:
+                    x_start, y_start = x2, y2
+                    x_end, y_end = x1, y1
+                
+                if y_start <= y < y_end:
+                    x = int(x_start + (y - y_start) * (x_end - x_start) / (y_end - y_start))
+                    intersections.append(x)
+            
+            intersections.sort()
+            for i in range(0, len(intersections), 2):
+                if i + 1 < len(intersections):
+                    draw_line(intersections[i], y, intersections[i + 1], y, color)
+    else:
+        # Dibuja el contorno del polígono conectando los vértices
+        for i in range(len(vertices)):
+            x1, y1 = vertices[i]
+            x2, y2 = vertices[(i + 1) % len(vertices)]  # Conecta con el siguiente vértice
+            draw_line(x1, y1, x2, y2, color)
+
+
+  #//////////////////////////////////////////////////
 
 # Inicializar el display
 init_display()
-fill_screen_fast(0b0000000000000000)  # Llenar la pantalla con negro
+fill_screen(0b0000000000000000)  # Llenar la pantalla con azul
 
 # Colores en formato RGB565
 red = 0b1111100000000000    # Rojo puro
@@ -114,12 +232,37 @@ black = 0b0000000000000000  # Negro
 white = 0b1111111111111111  # Blanco
 
 # Dibujar píxeles en diferentes posiciones y colores
-draw_pixel(0, 0, red)       # Esquina superior izquierda
-draw_pixel(134, 0, red)       # Esquina superior derecha
+#draw_pixel(0, 0, red)       # Esquina superior izquierda
+#draw_pixel(134, 0, red)       # Esquina superior derecha
 
-draw_pixel(120, 150, blue)
+#draw_pixel(120, 150, blue)
 
-draw_pixel(0, 239, blue) # Esquina inferior izquierda
+#draw_pixel(0, 239, blue) # Esquina inferior izquierda
 
-draw_pixel(134, 239, green) # Esquina inferior derecha
+#draw_pixel(134, 239, green) # Esquina inferior derecha
+
+#draw_line(134, 239,10, 10, green) # linea verde
+#draw_line(134, 239,50, 50, red) # linea roja
+#draw_line(134, 239,100,100, blue) # linea azul
+
+
+# Dibuja un rectángulo sin relleno
+#draw_rectangle(10, 10, 50, 30, color=0b0000011111100000)  # Color verde
+
+# Dibuja un rectángulo con relleno
+#draw_rectangle(60, 10, 100, 30, color=0b0000000000011111, filled=True)  # Color azul
+
+# Dibuja un círculo sin relleno
+#draw_circle(95, 95, radius=30, color=0b1111100000000000)  # Color rojo
+
+# Dibuja un círculo relleno
+#draw_circle(50, 150, radius=30, color=0xFFFF00, filled=True)  # Color amarillo
+
+
+# Dibuja un polígono sin relleno
+draw_polygon(0b0000011111100000, False, (10, 10), (20, 50), (80, 60), (50, 10), (9, 10))
+
+# Dibuja un polígono relleno
+draw_polygon(0b1111100000000000, True, (60, 60), (120, 50), (180, 60), (150, 100), (90, 100))
+
 
