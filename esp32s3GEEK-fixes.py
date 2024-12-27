@@ -66,16 +66,36 @@ def set_active_window(x0, y0, x1, y1):
     y0 += OFFSET_Y
     y1 += OFFSET_Y
     write_cmd(0x2A)  # Configurar columnas
-    write_data(x0 >> 8)  # Byte alto de x0
-    write_data(x0 & 0xFF)  # Byte bajo de x0
-    write_data(x1 >> 8)  # Byte alto de x1
-    write_data(x1 & 0xFF)  # Byte bajo de x1
+    write_data(x0 >> 8)
+    write_data(x0 & 0xFF)
+    write_data(x1 >> 8)
+    write_data(x1 & 0xFF)
 
     write_cmd(0x2B)  # Configurar filas
-    write_data(y0 >> 8)  # Byte alto de y0
-    write_data(y0 & 0xFF)  # Byte bajo de y0
-    write_data(y1 >> 8)  # Byte alto de y1
-    write_data(y1 & 0xFF)  # Byte bajo de y1
+    write_data(y0 >> 8)
+    write_data(y0 & 0xFF)
+    write_data(y1 >> 8)
+    write_data(y1 & 0xFF)
+def set_rotation(rotation):
+    """
+    Configura la orientación del display.
+    :param rotation: 0, 1, 2, o 3 (0: normal, 1: 90°, 2: 180°, 3: 270°)
+    """
+    madctl_values = [0x00, 0x60, 0xC0, 0xA0]
+    if rotation < 0 or rotation > 3:
+        raise ValueError("La rotación debe ser 0, 1, 2 o 3")
+    
+    write_cmd(0x36)  # Comando MADCTL
+    write_data(madctl_values[rotation])
+
+    global WIDTH, HEIGHT, OFFSET_X, OFFSET_Y
+    if rotation % 2 == 0:
+        WIDTH, HEIGHT = 240, 320
+        OFFSET_X, OFFSET_Y = 52, 40
+    else:
+        WIDTH, HEIGHT = 320, 240
+        OFFSET_X, OFFSET_Y = 40, 52
+            
 
 def fill_screen(color):
     """Llena toda la pantalla con un color usando un buffer por líneas."""
@@ -216,6 +236,9 @@ def draw_polygon(color, filled=False, *vertices):
             x2, y2 = vertices[(i + 1) % len(vertices)]  # Conecta con el siguiente vértice
             draw_line(x1, y1, x2, y2, color)
             
+
+            
+            
 def draw_char(x, y, char, color, bg_color):
     """Dibuja un carácter en el display usando una fuente de 8x8 píxeles."""
     if char not in font_8x8:
@@ -228,7 +251,7 @@ def draw_char(x, y, char, color, bg_color):
                 draw_pixel(x + col_index, y + row_index, color)  # Pixel encendido
             else:
                 draw_pixel(x + col_index, y + row_index, bg_color)  # Pixel apagado
-def draw_text(x, y, text, color, bg_color):
+def text(x, y, text, color, bg_color):
     """Dibuja una cadena de texto comenzando en la posición (x, y)."""
     for i, char in enumerate(text):
         draw_char(x + i * 8, y, char, color, bg_color)  # Avanza 8 píxeles por carácter
@@ -272,19 +295,24 @@ yellow = 0b1111111111100000 # Amarillo
 black = 0b0000000000000000  # Negro
 white = 0b1111111111111111  # Blanco
 
+
+set_rotation(3)  # Apaisado (90 grados)
+
+
+
 # Dibujar píxeles en diferentes posiciones y colores
 #draw_pixel(0, 0, red)       # Esquina superior izquierda
-#draw_pixel(134, 0, red)       # Esquina superior derecha
+draw_pixel(134, 0, red)       # Esquina superior derecha
 
-#draw_pixel(120, 150, blue)
+draw_pixel(120, 150, blue)
 
 #draw_pixel(0, 239, blue) # Esquina inferior izquierda
 
 #draw_pixel(134, 239, green) # Esquina inferior derecha
 
-#draw_line(134, 239,10, 10, green) # linea verde
-#draw_line(134, 239,50, 50, red) # linea roja
-#draw_line(134, 239,100,100, blue) # linea azul
+draw_line(134, 239,10, 10, green) # linea verde
+draw_line(134, 239,50, 50, red) # linea roja
+draw_line(134, 239,100,100, blue) # linea azul
 
 
 # Dibuja un rectángulo sin relleno
@@ -293,8 +321,8 @@ white = 0b1111111111111111  # Blanco
 # Dibuja un rectángulo con relleno
 #draw_rectangle(60, 10, 100, 30, color=0b0000000000011111, filled=True)  # Color azul
 
-# Dibuja un círculo sin relleno
-#draw_circle(95, 95, radius=30, color=0b1111100000000000)  # Color rojo
+ #Dibuja un círculo sin relleno
+draw_circle(95, 95, radius=30, color=0b1111100000000000)  # Color rojo
 
 # Dibuja un círculo relleno
 #draw_circle(50, 150, radius=30, color=0xFFFF00, filled=True)  # Color amarillo
@@ -304,12 +332,12 @@ white = 0b1111111111111111  # Blanco
 #draw_polygon(0b0000011111100000, False, (10, 10), (20, 50), (80, 60), (50, 10), (9, 10))
 
 # Dibuja un polígono relleno
-#draw_polygon(0b1111100000000000, True, (60, 60), (120, 50), (180, 60), (150, 100), (90, 100))
+draw_polygon(0b1111100000000000, True, (60, 60), (120, 50), (180, 60), (150, 100), (90, 100))
 
 
 
 # Escribir texto en el display
-draw_text(10, 20, "AB", 0b1111100000000000, 0b0000000000000000)  # Texto rojo sobre fondo negro
+text(10, 20, "AB", 0b1111100000000000, 0b0000001111111111)  # Texto rojo sobre fondo negro
 
 
 
