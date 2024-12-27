@@ -142,78 +142,123 @@ def draw_line(x0, y0, x1, y1, color):
             y0 += sy    
     
   
-def draw_rectangle(x0, y0, x1, y1, color, filled=False):
-    """Dibuja un rectángulo entre los puntos (x0, y0) y (x1, y1) con el color especificado.
-    Si 'filled' es True, el rectángulo estará relleno."""
+def draw_rectangle_optimized(x0, y0, x1, y1, color, filled=False):
+    """
+    Dibuja un rectángulo entre los puntos (x0, y0) y (x1, y1) con el color especificado.
+    Si 'filled' es True, el rectángulo estará relleno.
+    """
     if filled:
-        for x in range(min(x0, x1), max(x0, x1) + 1):
-            for y in range(min(y0, y1), max(y0, y1) + 1):
-                draw_pixel(x, y, color)
+        # Optimización para rectángulos rellenos usando ventanas y buffers
+        x_start = min(x0, x1)
+        x_end = max(x0, x1)
+        y_start = min(y0, y1)
+        y_end = max(y0, y1)
+        
+        set_active_window(x_start, y_start, x_end, y_end)  # Configurar la ventana activa
+        write_cmd(0x2C)  # Comando para escribir en memoria
+        
+        # Crear un buffer para una línea completa
+        line_length = x_end - x_start + 1
+        line_buffer = bytearray([color >> 8, color & 0xFF] * line_length)
+        
+        # Enviar líneas al display
+        for _ in range(y_start, y_end + 1):
+            cs.value(0)
+            dc.value(1)
+            spi.write(line_buffer)
+            cs.value(1)
     else:
+        # Contorno del rectángulo (no relleno)
+        # Líneas horizontales superior e inferior
         for x in range(min(x0, x1), max(x0, x1) + 1):
-            draw_pixel(x, y0, color)  # Línea superior
-            draw_pixel(x, y1, color)  # Línea inferior
+            draw_pixel(x, min(y0, y1), color)  # Línea superior
+            draw_pixel(x, max(y0, y1), color)  # Línea inferior
+        
+        # Líneas verticales izquierda y derecha
         for y in range(min(y0, y1), max(y0, y1) + 1):
-            draw_pixel(x0, y, color)  # Línea izquierda
-            draw_pixel(x1, y, color)  # Línea derecha
+            draw_pixel(min(x0, x1), y, color)  # Línea izquierda
+            draw_pixel(max(x0, x1), y, color)  # Línea derecha
 
 
 def draw_circle(x0, y0, radius, color, filled=False):
-    """Dibuja un círculo con centro en (x0, y0) y un radio 'radius'.
-    Si 'filled' es True, el círculo estará relleno."""
+    """
+    Dibuja un círculo con centro en (x0, y0) y un radio 'radius'.
+    Si 'filled' es True, el círculo estará relleno.
+    """
     x = radius
     y = 0
     err = 0
 
     while x >= y:
         if filled:
-            # Dibuja líneas horizontales entre los extremos del círculo
-            for i in range(x0 - x, x0 + x + 1):
-                draw_pixel(i, y0 + y, color)  # Parte superior
-                draw_pixel(i, y0 - y, color)  # Parte inferior
-            for i in range(x0 - y, x0 + y + 1):
-                draw_pixel(i, y0 + x, color)  # Lados arriba
-                draw_pixel(i, y0 - x, color)  # Lados abajo
+            # Dibuja líneas horizontales para rellenar el círculo
+            set_active_window(x0 - x, y0 + y, x0 + x, y0 + y)
+            write_cmd(0x2C)
+            line_color = bytearray([color >> 8, color & 0xFF] * (2 * x + 1))
+            cs.value(0)
+            dc.value(1)
+            spi.write(line_color)
+            cs.value(1)
 
-        # Dibuja el contorno del círculo en los octantes
-        draw_pixel(x0 + x, y0 + y, color)
-        draw_pixel(x0 - x, y0 + y, color)
-        draw_pixel(x0 + x, y0 - y, color)
-        draw_pixel(x0 - x, y0 - y, color)
-        draw_pixel(x0 + y, y0 + x, color)
-        draw_pixel(x0 - y, y0 + x, color)
-        draw_pixel(x0 + y, y0 - x, color)
-        draw_pixel(x0 - y, y0 - x, color)
+            set_active_window(x0 - x, y0 - y, x0 + x, y0 - y)
+            write_cmd(0x2C)
+            cs.value(0)
+            dc.value(1)
+            spi.write(line_color)
+            cs.value(1)
+
+            set_active_window(x0 - y, y0 + x, x0 + y, y0 + x)
+            write_cmd(0x2C)
+            line_color = bytearray([color >> 8, color & 0xFF] * (2 * y + 1))
+            cs.value(0)
+            dc.value(1)
+            spi.write(line_color)
+            cs.value(1)
+
+            set_active_window(x0 - y, y0 - x, x0 + y, y0 - x)
+            write_cmd(0x2C)
+            cs.value(0)
+            dc.value(1)
+            spi.write(line_color)
+            cs.value(1)
+        else:
+            # Dibuja solo el contorno del círculo
+            draw_pixel(x0 + x, y0 + y, color)
+            draw_pixel(x0 - x, y0 + y, color)
+            draw_pixel(x0 + x, y0 - y, color)
+            draw_pixel(x0 - x, y0 - y, color)
+            draw_pixel(x0 + y, y0 + x, color)
+            draw_pixel(x0 - y, y0 + x, color)
+            draw_pixel(x0 + y, y0 - x, color)
+            draw_pixel(x0 - y, y0 - x, color)
 
         y += 1
         err += 1 + 2 * y
         if 2 * (err - x) + 1 > 0:
             x -= 1
             err += 1 - 2 * x
-            
+  
             
 def draw_polygon(color, filled=False, *vertices):
     """
     Dibuja un polígono basado en una lista de vértices.
-    
     :param color: Color en formato RGB565.
     :param filled: Si es True, rellena el polígono.
-    :param vertices: Vértices del polígono como argumentos separados ((x1, y1), (x2, y2), ...).
+    :param vertices: Vértices del polígono como argumentos ((x1, y1), (x2, y2), ...).
     """
     if len(vertices) < 3:
         raise ValueError("Un polígono debe tener al menos 3 vértices.")
     
     if filled:
-        # Algoritmo de llenado básico: escaneo horizontal
+        # Escaneo horizontal para llenar el polígono
         min_y = min(y for _, y in vertices)
         max_y = max(y for _, y in vertices)
-        
+
         for y in range(min_y, max_y + 1):
             intersections = []
             for i in range(len(vertices)):
                 x1, y1 = vertices[i]
                 x2, y2 = vertices[(i + 1) % len(vertices)]
-                
                 if y1 < y2:
                     x_start, y_start = x1, y1
                     x_end, y_end = x2, y2
@@ -228,17 +273,21 @@ def draw_polygon(color, filled=False, *vertices):
             intersections.sort()
             for i in range(0, len(intersections), 2):
                 if i + 1 < len(intersections):
-                    draw_line(intersections[i], y, intersections[i + 1], y, color)
+                    set_active_window(intersections[i], y, intersections[i + 1], y)
+                    write_cmd(0x2C)  # Comando para escribir en memoria
+                    line_color = bytearray([color >> 8, color & 0xFF] * (intersections[i + 1] - intersections[i] + 1))
+                    cs.value(0)
+                    dc.value(1)
+                    spi.write(line_color)
+                    cs.value(1)
     else:
-        # Dibuja el contorno del polígono conectando los vértices
+        # Dibuja el contorno del polígono
         for i in range(len(vertices)):
             x1, y1 = vertices[i]
-            x2, y2 = vertices[(i + 1) % len(vertices)]  # Conecta con el siguiente vértice
+            x2, y2 = vertices[(i + 1) % len(vertices)]
             draw_line(x1, y1, x2, y2, color)
-            
 
-            
-            
+
 def draw_char(x, y, char, color, bg_color):
     """Dibuja un carácter en el display usando una fuente de 8x8 píxeles."""
     if char not in font_8x8:
@@ -280,6 +329,64 @@ font_8x8 = {
     # Añade más caracteres según sea necesario
 }
 
+def show_bmp(file_path, x_offset=0, y_offset=0):
+    """
+    Muestra un archivo BMP en el display reflejado horizontalmente.
+    :param file_path: Ruta del archivo BMP.
+    :param x_offset: Desplazamiento horizontal para dibujar la imagen.
+    :param y_offset: Desplazamiento vertical para dibujar la imagen.
+    """
+    with open(file_path, "rb") as bmp_file:
+        # Leer el encabezado BMP
+        bmp_file.seek(10)
+        pixel_data_offset = int.from_bytes(bmp_file.read(4), "little")
+
+        bmp_file.seek(18)
+        width = int.from_bytes(bmp_file.read(4), "little")
+        height = int.from_bytes(bmp_file.read(4), "little")
+
+        bmp_file.seek(28)
+        bits_per_pixel = int.from_bytes(bmp_file.read(2), "little")
+
+        if bits_per_pixel != 24:
+            raise ValueError("Solo se admiten BMP de 24 bits.")
+
+        # Configurar la ventana activa en el display
+        set_active_window(x_offset, y_offset, x_offset + width - 1, y_offset + height - 1)
+        write_cmd(0x2C)  # Comando para escribir en memoria
+
+        # Mover a los datos de píxeles
+        bmp_file.seek(pixel_data_offset)
+
+        # Buffer para procesar una línea completa
+        line_buffer = bytearray(width * 3)  # Buffer para la línea en formato RGB888
+        mirrored_line = bytearray(width * 2)  # Buffer para la línea reflejada en RGB565
+
+        # Procesar línea por línea
+        for y in range(height):
+            # Leer una línea completa en formato RGB888
+            bmp_file.readinto(line_buffer)
+
+            # Convertir y reflejar la línea
+            for x in range(width):
+                b = line_buffer[3 * x]
+                g = line_buffer[3 * x + 1]
+                r = line_buffer[3 * x + 2]
+
+                # Convertir a RGB565
+                color = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+                # Insertar el color reflejado
+                mirrored_x = width - x - 1
+                mirrored_line[2 * mirrored_x] = color >> 8
+                mirrored_line[2 * mirrored_x + 1] = color & 0xFF
+
+            # Enviar la línea reflejada al display
+            cs.value(0)
+            dc.value(1)
+            spi.write(mirrored_line)
+            cs.value(1)
+
 
   #//////////////////////////////////////////////////
 
@@ -319,13 +426,13 @@ draw_line(134, 239,100,100, blue) # linea azul
 #draw_rectangle(10, 10, 50, 30, color=0b0000011111100000)  # Color verde
 
 # Dibuja un rectángulo con relleno
-#draw_rectangle(60, 10, 100, 30, color=0b0000000000011111, filled=True)  # Color azul
+draw_rectangle(60, 10, 100, 30, color=0b0000000000011111, filled=True)  # Color azul
 
  #Dibuja un círculo sin relleno
 draw_circle(95, 95, radius=30, color=0b1111100000000000)  # Color rojo
 
 # Dibuja un círculo relleno
-#draw_circle(50, 150, radius=30, color=0xFFFF00, filled=True)  # Color amarillo
+draw_circle(50, 50, radius=30, color=0xFFFF00, filled=True)  # Color amarillo
 
 
 # Dibuja un polígono sin relleno
@@ -339,5 +446,6 @@ draw_polygon(0b1111100000000000, True, (60, 60), (120, 50), (180, 60), (150, 100
 # Escribir texto en el display
 text(10, 20, "AB", 0b1111100000000000, 0b0000001111111111)  # Texto rojo sobre fondo negro
 
+show_bmp("/ESP32-S3-GEEK.bmp", x_offset=0, y_offset=0)
 
 
