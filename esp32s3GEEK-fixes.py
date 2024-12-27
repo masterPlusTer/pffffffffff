@@ -215,6 +215,47 @@ def draw_polygon(color, filled=False, *vertices):
             x1, y1 = vertices[i]
             x2, y2 = vertices[(i + 1) % len(vertices)]  # Conecta con el siguiente vértice
             draw_line(x1, y1, x2, y2, color)
+            
+def draw_char(x, y, char, color, bg_color):
+    """Dibuja un carácter en el display usando una fuente de 8x8 píxeles."""
+    if char not in font_8x8:
+        return  # Salta si el carácter no está en la fuente
+
+    bitmap = font_8x8[char]
+    for row_index, row in enumerate(bitmap):
+        for col_index in range(8):
+            if row & (1 << (7 - col_index)):  # Verifica cada bit
+                draw_pixel(x + col_index, y + row_index, color)  # Pixel encendido
+            else:
+                draw_pixel(x + col_index, y + row_index, bg_color)  # Pixel apagado
+def draw_text(x, y, text, color, bg_color):
+    """Dibuja una cadena de texto comenzando en la posición (x, y)."""
+    for i, char in enumerate(text):
+        draw_char(x + i * 8, y, char, color, bg_color)  # Avanza 8 píxeles por carácter
+
+font_8x8 = {
+    'A': [
+        0b00011000,
+        0b00100100,
+        0b01000010,
+        0b01000010,
+        0b01111110,
+        0b01000010,
+        0b01000010,
+        0b00000000
+    ],
+    'B': [
+        0b01111100,
+        0b01000010,
+        0b01000010,
+        0b01111100,
+        0b01000010,
+        0b01000010,
+        0b01111100,
+        0b00000000
+    ],
+    # Añade más caracteres según sea necesario
+}
 
 
   #//////////////////////////////////////////////////
@@ -260,9 +301,15 @@ white = 0b1111111111111111  # Blanco
 
 
 # Dibuja un polígono sin relleno
-draw_polygon(0b0000011111100000, False, (10, 10), (20, 50), (80, 60), (50, 10), (9, 10))
+#draw_polygon(0b0000011111100000, False, (10, 10), (20, 50), (80, 60), (50, 10), (9, 10))
 
 # Dibuja un polígono relleno
-draw_polygon(0b1111100000000000, True, (60, 60), (120, 50), (180, 60), (150, 100), (90, 100))
+#draw_polygon(0b1111100000000000, True, (60, 60), (120, 50), (180, 60), (150, 100), (90, 100))
+
+
+
+# Escribir texto en el display
+draw_text(10, 20, "AB", 0b1111100000000000, 0b0000000000000000)  # Texto rojo sobre fondo negro
+
 
 
