@@ -142,7 +142,7 @@ def draw_line(x0, y0, x1, y1, color):
             y0 += sy    
     
   
-def draw_rectangle_optimized(x0, y0, x1, y1, color, filled=False):
+def draw_rectangle(x0, y0, x1, y1, color, filled=False):
     """
     Dibuja un rectángulo entre los puntos (x0, y0) y (x1, y1) con el color especificado.
     Si 'filled' es True, el rectángulo estará relleno.
